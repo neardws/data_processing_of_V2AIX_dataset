@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "v2aix-pipeline"
+version = "0.1.0"
+description = "Data processing pipeline for the V2AIX Dataset"
+authors = [{name = "V2AIX Pipeline"}]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+	"pydantic>=2.5",
+	"pyyaml>=6.0.1",
+	"pandas>=2.2.2",
+	"numpy>=1.26",
+	"pyproj>=3.6",
+	"shapely>=2.0",
+	"pyarrow>=16.1",
+	"pymap3d>=3.1",
+	"matplotlib>=3.8",
+	"seaborn>=0.13",
+]
+
+[project.scripts]
+v2aix-pipeline = "v2aix_pipeline.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+

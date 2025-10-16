@@ -1,0 +1,100 @@
+# V2AIX Data Processing Pipeline - Example Configuration
+#
+# This is an example configuration file for the V2AIX data processing pipeline.
+# Save this file and run: v2aix-pipeline --config /path/to/config.yaml
+
+# === Required Parameters ===
+
+# Input directory containing V2AIX JSON files
+input_dir: /path/to/v2aix/json/files
+
+# Output directory for processed data (Parquet/CSV files)
+output_dir: /path/to/output/directory
+
+
+# === Geographic Filtering (Optional) ===
+
+# Option 1: Bounding box filter (min_lon, min_lat, max_lon, max_lat)
+# Filters vehicles whose trajectories intersect this region
+region_bbox: [6.0, 50.0, 7.0, 51.0]  # Example: Region around Aachen, Germany
+
+# Option 2: Polygon filter (path to GeoJSON file)
+# Use this for more precise geographic filtering
+# region_polygon_path: /path/to/region_polygon.geojson
+
+
+# === Coordinate System ===
+
+# Origin point for local coordinate system (lon, lat)
+# If not specified, uses first valid GNSS point in the region
+# origin: [6.5, 50.5]
+
+# Use ENU (East-North-Up) coordinate system instead of UTM
+# ENU is recommended for small regions (< 10km), UTM for larger areas
+use_enu: true
+
+
+# === Processing Parameters ===
+
+# Target sampling frequency in Hz (default: 1)
+# Trajectories will be resampled to this frequency
+hz: 1
+
+# Time synchronization tolerance in milliseconds (default: 500)
+# V2X messages within ±sync_tolerance_ms of trajectory timestamp will be fused
+sync_tolerance_ms: 500
+
+# Gap detection threshold in seconds (default: 5.0)
+# Gaps larger than this will not be interpolated
+gap_threshold_s: 5.0
+
+
+# === Output Configuration ===
+
+# Output format: 'parquet' or 'csv' (default: parquet)
+# Parquet is more efficient for large datasets
+format: parquet
+
+# Generate visualizations (trajectory maps, heatmaps, time series)
+visualize: false
+
+# Optional: Path for output metadata JSON file
+# metadata_out: /path/to/output/metadata.json
+
+
+# === Optional Data Mapping ===
+
+# Vehicle ID mapping (JSON file)
+# Maps raw station IDs to canonical vehicle identifiers
+# Format: {"raw_id_1": "vehicle_001", "raw_id_2": "vehicle_002", ...}
+# ids_map_path: /path/to/ids_map.json
+
+# RSU metadata (JSON file)
+# Contains information about roadside units (locations, IDs)
+# Format: {"RSU_001": {"lat": 50.5, "lon": 6.5, "location": "Main St"}, ...}
+# rsu_ids_path: /path/to/rsu_ids.json
+
+
+# === Performance Options ===
+
+# Limit number of samples during discovery phase (for testing)
+# Useful for quickly inspecting large datasets
+# sample: 100
+
+# Number of parallel workers for processing
+# If not specified, uses number of CPU cores
+# workers: 4
+
+
+# === Example Usage ===
+#
+# 1. Edit this file with your paths and parameters
+# 2. Run the pipeline:
+#    v2aix-pipeline --config documents/example_config.yaml
+#
+# 3. Or override specific parameters:
+#    v2aix-pipeline --config config.yaml --hz 10 --visualize
+#
+# 4. For quick testing (sample mode):
+#    v2aix-pipeline --config config.yaml --sample 50
+
