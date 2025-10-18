@@ -1,0 +1,107 @@
+================================================================================
+V2AIX Data Analysis Report
+================================================================================
+
+Loading data files...
+✓ Data loaded successfully
+
+================================================================================
+TRAJECTORY ANALYSIS
+================================================================================
+Total trajectory points: 20,979
+Unique vehicles: 1
+Time span: 50361.7 minutes
+
+Sample trajectory data:
+    timestamp_ms vehicle_id   latitude  longitude               topic
+0  1705860399297    unknown  50.722976   6.128203  /gps/cohda_mk5/fix
+1  1705860399512    unknown  50.722966   6.128164  /gps/cohda_mk5/fix
+2  1705860399723    unknown  50.722958   6.128125  /gps/cohda_mk5/fix
+3  1705860399730    unknown  50.722958   6.128125  /gps/cohda_mk5/fix
+4  1705860399909    unknown  50.722950   6.128086  /gps/cohda_mk5/fix
+5  1705860400105    unknown  50.722942   6.128046  /gps/cohda_mk5/fix
+6  1705860400307    unknown  50.722935   6.128006  /gps/cohda_mk5/fix
+7  1705860400510    unknown  50.722929   6.127967  /gps/cohda_mk5/fix
+8  1705860400739    unknown  50.722923   6.127927  /gps/cohda_mk5/fix
+9  1705860400746    unknown  50.722923   6.127927  /gps/cohda_mk5/fix
+
+================================================================================
+V2X COMMUNICATION ANALYSIS
+================================================================================
+Total V2X messages: 3,376
+Unique vehicles: 6
+
+Message types:
+  - UNKNOWN: 1,688 messages
+  - CAM: 1,688 messages
+
+Data volume statistics:
+  - Total bytes sent: 10,357,128 bytes (9.88 MB)
+  - Average message size: 3067.9 bytes
+  - Min message size: 591 bytes
+  - Max message size: 6,797 bytes
+
+Messages per vehicle:
+  - Mean: 562.7 messages
+  - Median: 75 messages
+  - Max: 1,688 messages
+
+Sample V2X messages:
+    timestamp_ms vehicle_id message_type  message_size_bytes     topic
+0  1705860419716    unknown      UNKNOWN                 974  /v2x/raw
+1  1705860420010    unknown      UNKNOWN                 596  /v2x/raw
+2  1705860420316    unknown      UNKNOWN                 983  /v2x/raw
+3  1705860420612    unknown      UNKNOWN                 602  /v2x/raw
+4  1705860420913    unknown      UNKNOWN                 980  /v2x/raw
+5  1705860421211    unknown      UNKNOWN                 597  /v2x/raw
+6  1705860421511    unknown      UNKNOWN                 976  /v2x/raw
+7  1705860421811    unknown      UNKNOWN                 601  /v2x/raw
+8  1705860422211    unknown      UNKNOWN                 602  /v2x/raw
+9  1705860422422    unknown      UNKNOWN                 597  /v2x/raw
+
+================================================================================
+FUSED DATA ANALYSIS (Trajectory + V2X)
+================================================================================
+Total fused data points: 20,979
+
+Points with V2X activity: 3,865 (18.4%)
+
+V2X activity at trajectory points:
+  - Total messages sent: 22,444
+  - Total bytes sent: 17,572,160 bytes
+  - Avg messages per active point: 5.81
+  - Avg bytes per active point: 4546.5 bytes
+
+Sample fused data (with V2X activity):
+ timestamp_ms vehicle_id  latitude  longitude  messages_sent  total_bytes_sent message_types
+1705860419307    unknown 50.721910   6.124826              2              1948       UNKNOWN
+1705860419307    unknown 50.721910   6.124826              2              1948       UNKNOWN
+1705860419507    unknown 50.721911   6.124809              2              1948       UNKNOWN
+1705860419507    unknown 50.721911   6.124809              2              1948       UNKNOWN
+1705860419734    unknown 50.721912   6.124793              4              3140       UNKNOWN
+1705860419734    unknown 50.721912   6.124793              4              3140       UNKNOWN
+1705860419740    unknown 50.721912   6.124793              4              3140       UNKNOWN
+1705860419740    unknown 50.721912   6.124793              4              3140       UNKNOWN
+1705860419900    unknown 50.721913   6.124779              6              5106       UNKNOWN
+1705860419900    unknown 50.721913   6.124779              6              5106       UNKNOWN
+
+================================================================================
+PER-VEHICLE STATISTICS
+================================================================================
+            timestamp_ms_count  ...  data_rate_kbps
+vehicle_id                      ...                
+unknown                  20979  ...        0.046523
+
+[1 rows x 5 columns]
+
+================================================================================
+SUMMARY
+================================================================================
+✓ Processed 20,979 trajectory points from 1 vehicle(s)
+✓ Captured 3,376 V2X messages
+✓ Total data transmitted: 9.88 MB
+✓ Fused 20,979 trajectory-communication data points
+================================================================================
+
+✓ Detailed statistics saved to: output/processed_aachen/analysis_summary.csv
+

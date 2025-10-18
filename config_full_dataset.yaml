@@ -1,0 +1,32 @@
+# V2AIX 数据集完整处理配置
+# 自动遍历所有 Mobile 和 Stationary 数据
+
+input_dir: /Users/neardws/Documents/data_processing_of_V2AIX_dataset/json
+output_dir: /Users/neardws/Documents/data_processing_of_V2AIX_dataset/output
+
+# 输出格式
+format: parquet  # 或 csv
+
+# 重采样频率（Hz）
+hz: 1
+
+# 时间同步容差（毫秒）
+sync_tolerance_ms: 500
+
+# 轨迹间隙检测阈值（秒）
+gap_threshold_s: 5.0
+
+# 使用 ENU 坐标系统
+use_enu: true
+
+# 生成可视化图表
+visualize: true
+
+# 并行处理线程数
+workers: 4
+
+# 可选：限制处理的样本数（用于测试）
+# sample: 100
+
+# 可选：元数据输出路径
+metadata_out: /Users/neardws/Documents/data_processing_of_V2AIX_dataset/output/metadata.json

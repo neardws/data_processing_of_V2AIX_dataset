@@ -1,0 +1,14 @@
+# 仅处理 Stationary 场景数据
+
+input_dir: /Users/neardws/Documents/data_processing_of_V2AIX_dataset/json/Stationary
+output_dir: /Users/neardws/Documents/data_processing_of_V2AIX_dataset/output/stationary
+
+format: parquet
+hz: 1
+sync_tolerance_ms: 500
+gap_threshold_s: 5.0
+use_enu: true
+visualize: true
+workers: 4
+
+metadata_out: /Users/neardws/Documents/data_processing_of_V2AIX_dataset/output/stationary/metadata.json

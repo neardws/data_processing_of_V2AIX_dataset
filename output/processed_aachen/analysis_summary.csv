@@ -1,0 +1,2 @@
+vehicle_id,timestamp_ms_count,timestamp_ms_min,timestamp_ms_max,messages_sent_sum,total_bytes_sent_sum,duration_min,data_rate_kbps
+unknown,20979,1705860399297,1708882101917,22444,17572160,50361.710333333336,0.04652253966672604

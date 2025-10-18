@@ -89,10 +89,10 @@ class TestConfigAndDiscovery(unittest.TestCase):
 
 	def test_discover_dataset(self):
 		summary = discover_dataset(self.root / "in", sample=10)
-		self.assertEqual(summary.get("num_json_files"), 2)
-		self.assertGreaterEqual(summary.get("estimated_gnss_records", 0), 1)
-		self.assertGreaterEqual(summary.get("estimated_v2x_records", 0), 1)
-		self.assertGreaterEqual(summary.get("unique_vehicle_ids", 0), 1)
+		self.assertEqual(summary.get("total_files"), 2)
+		self.assertGreaterEqual(summary.get("gnss_records", 0), 1)
+		self.assertGreaterEqual(summary.get("v2x_records", 0), 1)
+		self.assertGreaterEqual(summary.get("vehicle_count", 0), 1)
 
 
 if __name__ == "__main__":

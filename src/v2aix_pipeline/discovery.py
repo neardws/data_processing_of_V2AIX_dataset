@@ -123,12 +123,36 @@ def _iter_json_objects(
                 except json.JSONDecodeError:
                     pass
 
-                # Single JSON object
+                # Single JSON object - could be V2AIX topic-based format
                 f.seek(0)
                 try:
                     data = json.load(f)
                     if isinstance(data, dict):
-                        yield data
+                        # Check if this is V2AIX topic-based format (keys like "/gps/...", "/v2x/...")
+                        if any(key.startswith('/') for key in data.keys()):
+                            logger.debug(f"Detected V2AIX topic-based format in {json_path.name}")
+                            # Iterate through each topic's records
+                            for topic, records in data.items():
+                                if isinstance(records, list):
+                                    for record in records:
+                                        if isinstance(record, dict):
+                                            # Flatten the structure: merge 'message' field if it exists
+                                            if 'message' in record and isinstance(record['message'], dict):
+                                                # Create flattened object with both top-level and message fields
+                                                flattened = {**record['message'],
+                                                           'recording_timestamp_nsec': record.get('recording_timestamp_nsec'),
+                                                           '_topic': topic}
+                                                yield flattened
+                                            else:
+                                                # Add topic information
+                                                record['_topic'] = topic
+                                                yield record
+                                            count += 1
+                                            if count >= max_count:
+                                                return
+                        else:
+                            # Regular single JSON object
+                            yield data
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse JSON object in {json_path}: {e}")
 
@@ -139,21 +163,27 @@ def _iter_json_objects(
 def _extract_ids_and_types(obj: Dict[str, Any]) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """Extract vehicle/station ID, station type, and message type from a JSON object.
 
-    Supports multiple field naming conventions from different data sources.
+    Supports multiple field naming conventions from different data sources,
+    including deeply nested V2AIX CAM/DENM structures.
 
     Args:
         obj: JSON object (dict)
 
     Returns:
         Tuple of (vehicle_id, station_type, message_type)
-        - vehicle_id: Extracted from stationID, station_id, vehicleID, vehicle_id, or id
+        - vehicle_id: Extracted from various station ID fields
         - station_type: Extracted from stationType or station_type
-        - message_type: Extracted from messageType, message_type, or msgType
+        - message_type: Detected from message structure (CAM, DENM, etc.)
 
     Notes:
         All returned values are strings or None if field not found.
     """
-    # Extract vehicle/station ID - try multiple field names
+    vehicle_id = None
+    station_type = None
+    message_type = None
+
+    # Extract vehicle/station ID - try multiple field names and nested paths
+    # Direct fields
     vehicle_id = (
         obj.get("stationID") or
         obj.get("station_id") or
@@ -161,20 +191,55 @@ def _extract_ids_and_types(obj: Dict[str, Any]) -> tuple[Optional[str], Optional
         obj.get("vehicle_id") or
         obj.get("id")
     )
+
+    # V2AIX nested structure: header.station_id.value
+    if not vehicle_id and "header" in obj and isinstance(obj["header"], dict):
+        header = obj["header"]
+        station_id_obj = header.get("station_id")
+        if isinstance(station_id_obj, dict) and "value" in station_id_obj:
+            vehicle_id = station_id_obj["value"]
+
     if vehicle_id is not None:
         vehicle_id = str(vehicle_id)
 
-    # Extract station type
+    # Extract station type - try direct and nested paths
     station_type = obj.get("stationType") or obj.get("station_type")
+
+    # V2AIX CAM structure: cam.cam_parameters.basic_container.station_type.value
+    if not station_type and "cam" in obj and isinstance(obj["cam"], dict):
+        cam = obj["cam"]
+        if "cam_parameters" in cam and isinstance(cam["cam_parameters"], dict):
+            cam_params = cam["cam_parameters"]
+            if "basic_container" in cam_params and isinstance(cam_params["basic_container"], dict):
+                basic = cam_params["basic_container"]
+                station_type_obj = basic.get("station_type")
+                if isinstance(station_type_obj, dict) and "value" in station_type_obj:
+                    station_type = station_type_obj["value"]
+
     if station_type is not None:
         station_type = str(station_type)
 
-    # Extract message type
+    # Extract/detect message type
     message_type = (
         obj.get("messageType") or
         obj.get("message_type") or
         obj.get("msgType")
     )
+
+    # Detect from V2AIX message structure
+    if not message_type:
+        if "cam" in obj:
+            message_type = "CAM"
+        elif "denm" in obj:
+            message_type = "DENM"
+        elif "header" in obj and isinstance(obj["header"], dict):
+            # Try to get from header.message_id
+            msg_id = obj["header"].get("message_id")
+            if msg_id == 2:
+                message_type = "CAM"
+            elif msg_id == 1:
+                message_type = "DENM"
+
     if message_type is not None:
         message_type = str(message_type)
 
@@ -209,7 +274,10 @@ def _is_v2x_like(obj: Dict[str, Any]) -> bool:
     return (
         "messageType" in obj or "message_type" in obj or "msgType" in obj or
         "tx_timestamp" in obj or "rx_timestamp" in obj or
-        "direction" in obj or "rsu_id" in obj
+        "direction" in obj or "rsu_id" in obj or
+        # V2AIX format indicators
+        "cam" in obj or "denm" in obj or
+        ("header" in obj and isinstance(obj.get("header"), dict) and "message_id" in obj["header"])
     )
 
 
