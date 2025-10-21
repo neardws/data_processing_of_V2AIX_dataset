@@ -41,6 +41,10 @@ class V2XMessage:
     vehicle_id: str
     message_type: str  # CAM, DENM, etc.
     message_size_bytes: int
+    # Node IDs for communication link
+    sender_id: Optional[str] = None  # 发送节点ID
+    receiver_id: Optional[str] = None  # 接收节点ID
+    # Communication metrics
     latency_ms: Optional[float] = None
     rssi_dbm: Optional[float] = None
     topic: str = ""
@@ -63,7 +67,69 @@ class FusedData:
     message_types: str = ""
 
 
-def extract_trajectory_from_topic(data: Dict[str, Any], topic: str) -> List[TrajectoryPoint]:
+def infer_vehicle_id_from_data(data: Dict[str, Any]) -> str:
+    """
+    从JSON数据中推断主要的车辆ID
+
+    策略:
+    - 统计所有V2X消息中的station_id
+    - 如果某个ID占比>80%,认为是单车文件
+    - 否则返回"unknown" (多车混合)
+
+    Args:
+        data: JSON数据字典
+
+    Returns:
+        推断的车辆ID,如果无法确定则返回"unknown"
+    """
+    from collections import Counter
+
+    station_ids = []
+
+    # 从V2X消息中收集station_id
+    for topic in ['/v2x/cam', '/v2x/denm']:
+        if topic not in data:
+            continue
+
+        records = data[topic]
+        if not isinstance(records, list):
+            continue
+
+        for record in records:
+            if not isinstance(record, dict):
+                continue
+
+            msg = record.get('message', {})
+            if not isinstance(msg, dict):
+                continue
+
+            header = msg.get('header', {})
+            if not isinstance(header, dict):
+                continue
+
+            station_id_obj = header.get('station_id', {})
+            if isinstance(station_id_obj, dict):
+                sid = station_id_obj.get('value')
+                if sid:
+                    station_ids.append(sid)
+
+    if not station_ids:
+        return "unknown"
+
+    # 统计最常见的station_id
+    id_counts = Counter(station_ids)
+    most_common_id, most_common_count = id_counts.most_common(1)[0]
+
+    # 如果某个ID占比>80%,认为是单车文件
+    if most_common_count / len(station_ids) > 0.8:
+        return str(most_common_id)
+
+    # 多车混合,无法确定主车辆
+    logger.debug(f"Multiple vehicles detected: {len(id_counts)} unique IDs")
+    return "unknown"
+
+
+def extract_trajectory_from_topic(data: Dict[str, Any], topic: str, vehicle_id: str = "unknown") -> List[TrajectoryPoint]:
     """Extract trajectory points from a GPS topic.
 
     Args:
@@ -115,9 +181,8 @@ def extract_trajectory_from_topic(data: Dict[str, Any], topic: str) -> List[Traj
         # Extract heading (might be in orientation or separate field)
         heading = None
 
-        # For V2AIX, we need to get vehicle ID from somewhere
-        # This might need to be inferred or provided separately
-        vehicle_id = "unknown"
+        # Use provided vehicle_id instead of hardcoded "unknown"
+        # vehicle_id parameter should be inferred from V2X messages in the same file
 
         point = TrajectoryPoint(
             timestamp_ms=timestamp_ms,
@@ -175,13 +240,41 @@ def extract_v2x_from_topic(data: Dict[str, Any], topic: str) -> List[V2XMessage]
         elif 'denm' in message:
             message_type = "DENM"
 
-        # Extract vehicle/station ID
+        # Extract sender ID (vehicle/station ID from message header)
+        sender_id = "unknown"
         vehicle_id = "unknown"
         header = message.get('header', {})
         if isinstance(header, dict):
             station_id_obj = header.get('station_id', {})
             if isinstance(station_id_obj, dict):
-                vehicle_id = str(station_id_obj.get('value', 'unknown'))
+                sid = station_id_obj.get('value')
+                if sid:
+                    sender_id = str(sid)
+                    vehicle_id = str(sid)
+
+        # Extract receiver ID
+        # For ROS messages, receiver might be indicated by frame_id or address
+        receiver_id = None
+
+        # Try to get receiver from ROS message header (if present)
+        if isinstance(header, dict):
+            # Check frame_id (might indicate RSU or receiver)
+            frame_id = header.get('frame_id')
+            if frame_id and isinstance(frame_id, str):
+                # frame_id might be an IP address or RSU identifier
+                if frame_id != sender_id and frame_id != '':
+                    receiver_id = frame_id
+
+        # Try to get receiver from v2x/raw message address field
+        address = message.get('address')
+        if address:
+            if isinstance(address, str):
+                receiver_id = address
+            elif isinstance(address, dict):
+                # Might have nested structure
+                addr_value = address.get('value') or address.get('address')
+                if addr_value:
+                    receiver_id = str(addr_value)
 
         # Calculate message size (approximate from JSON serialization)
         message_size = len(json.dumps(message))
@@ -197,6 +290,8 @@ def extract_v2x_from_topic(data: Dict[str, Any], topic: str) -> List[V2XMessage]
             vehicle_id=vehicle_id,
             message_type=message_type,
             message_size_bytes=message_size,
+            sender_id=sender_id,
+            receiver_id=receiver_id,
             latency_ms=latency,
             rssi_dbm=rssi,
             topic=topic
@@ -226,14 +321,19 @@ def process_json_file(json_path: Path) -> Tuple[List[TrajectoryPoint], List[V2XM
             logger.warning(f"Unexpected JSON structure in {json_path.name}")
             return trajectories, v2x_messages
 
+        # Step 1: Infer vehicle ID from V2X messages in this file
+        inferred_vehicle_id = infer_vehicle_id_from_data(data)
+        if inferred_vehicle_id != "unknown":
+            logger.debug(f"{json_path.name}: Inferred vehicle_id = {inferred_vehicle_id}")
+
         # Process each topic
         for topic, records in data.items():
             if not isinstance(topic, str) or not topic.startswith('/'):
                 continue
 
-            # GPS topics
+            # GPS topics - use inferred vehicle_id
             if '/gps' in topic or '/gnss' in topic or '/fix' in topic:
-                traj = extract_trajectory_from_topic(data, topic)
+                traj = extract_trajectory_from_topic(data, topic, inferred_vehicle_id)
                 trajectories.extend(traj)
                 logger.debug(f"Extracted {len(traj)} trajectory points from {topic}")
 
@@ -316,10 +416,42 @@ def fuse_trajectory_and_v2x(
     return fused
 
 
+def find_scenario_files(input_dir: Path, scenario_dirs: list = None) -> list:
+    """
+    查找指定scenarios目录下的所有JSON文件
+
+    Args:
+        input_dir: 输入根目录
+        scenario_dirs: 指定的scenarios目录列表（相对于input_dir）
+                      如果为None,则查找所有scenarios目录
+
+    Returns:
+        JSON文件路径列表
+    """
+    json_files = []
+
+    if scenario_dirs is None:
+        # 查找所有scenarios目录
+        json_files = list(input_dir.rglob("scenarios/*.json"))
+    else:
+        # 只查找指定的scenarios目录
+        for scenario_dir in scenario_dirs:
+            full_path = input_dir / scenario_dir
+            if full_path.exists() and full_path.is_dir():
+                files = list(full_path.glob("*.json"))
+                json_files.extend(files)
+                logger.info(f"Found {len(files)} files in {scenario_dir}")
+            else:
+                logger.warning(f"Scenario directory not found: {scenario_dir}")
+
+    return sorted(json_files)
+
+
 def process_dataset(
     input_dir: Path,
     output_dir: Path,
-    output_format: str = 'parquet'
+    output_format: str = 'parquet',
+    scenario_dirs: list = None
 ) -> Dict[str, Any]:
     """Process entire dataset to extract trajectories and V2X metrics.
 
@@ -327,6 +459,8 @@ def process_dataset(
         input_dir: Input directory with JSON files
         output_dir: Output directory for results
         output_format: Output format ('parquet' or 'csv')
+        scenario_dirs: List of scenario directories to process (relative to input_dir)
+                      If None, process all scenarios directories
 
     Returns:
         Summary statistics
@@ -335,8 +469,8 @@ def process_dataset(
     output_dir = output_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Find all JSON files
-    json_files = list(input_dir.rglob("*.json"))
+    # Find JSON files using find_scenario_files
+    json_files = find_scenario_files(input_dir, scenario_dirs)
     logger.info(f"Processing {len(json_files)} JSON files from {input_dir}")
 
     all_trajectories = []

@@ -1,0 +1,50 @@
+# V2AIX数据集配置 - 只处理指定的scenarios目录
+# 改进版：车辆ID推断 + 发送/接收节点信息
+
+# 输入输出路径
+input_dir: /Users/neardws/Documents/data_processing_of_V2AIX_dataset/json
+output_dir: /Users/neardws/Documents/data_processing_of_V2AIX_dataset/output/processed_scenarios
+
+# 指定要处理的scenarios目录（相对于input_dir）
+scenario_dirs:
+  # Mobile数据
+  - Mobile/V2X-only/Aachen/scenarios
+  - Mobile/V2X-only/Highway/scenarios
+  - Mobile/V2X-only/Rural/scenarios
+  # Stationary数据
+  - Stationary/V2X-only/Aachen-Heinrichsallee/scenarios
+  - Stationary/V2X-only/Aachen-Monheimsallee/scenarios
+  - Stationary/V2X-only/Aachen-Ponttor/scenarios
+  - Stationary/V2X-only/Aachen-Theaterstrasse/scenarios
+
+# 输出格式
+format: parquet  # 或 csv
+
+# 重采样频率（Hz）
+hz: 1
+
+# 时间同步容差（毫秒）
+sync_tolerance_ms: 500
+
+# 轨迹间隙检测阈值（秒）
+gap_threshold_s: 5.0
+
+# 使用 ENU 坐标系统
+use_enu: true
+
+# 生成可视化图表
+visualize: false
+
+# 并行处理线程数
+workers: 4
+
+# 可选：元数据输出路径
+metadata_out: /Users/neardws/Documents/data_processing_of_V2AIX_dataset/output/processed_scenarios/metadata.json
+
+# 处理策略说明
+# ================
+# 1. 只处理scenarios目录下的文件（不处理joined.json）
+# 2. 从V2X消息中推断车辆ID（station_id）
+# 3. 将推断的ID应用到GPS轨迹
+# 4. V2X消息包含发送节点ID（sender_id）和接收节点ID（receiver_id）
+# 5. 预期83%的文件为单车，可以成功推断车辆ID

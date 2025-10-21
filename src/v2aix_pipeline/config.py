@@ -90,6 +90,10 @@ class PipelineConfig(BaseModel):
         ge=1,
         description="Number of parallel workers for processing"
     )
+    scenario_dirs: Optional[list] = Field(
+        default=None,
+        description="List of scenario directories to process (relative to input_dir)"
+    )
 
     @field_validator('format')
     @classmethod
